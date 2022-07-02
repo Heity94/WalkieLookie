@@ -13,6 +13,7 @@ pickle
 #routing
 networkx
 osmnx
+geopy
 
 #web app
 streamlit
