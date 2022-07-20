@@ -20,12 +20,12 @@ def add_start_end_node(start_address, street_graph, places_df, user_time, avg_sp
   start_latlng = locator.geocode(start_address).point
   #end_latlng = locator.geocode(end_location).point
 
-  # Find nearest node on the street graph 
+  # Find nearest node on the street graph
   orig_node = ox.distance.nearest_nodes(street_graph, start_latlng[1], start_latlng[0]) #graph, long, lat
 
   radius = (user_time/60)*avg_speed*350
   subgraph = nx.ego_graph(street_graph, orig_node, radius=radius, distance='length')
-  
+
   places_df_small = places_df.loc[places_df.center_node.isin(subgraph.nodes())]
 
   nodes_to_visit = [orig_node]+places_df_small.center_node.to_list() #add start node tto list to visit
@@ -35,12 +35,12 @@ def add_start_end_node(start_address, street_graph, places_df, user_time, avg_sp
 
 def get_route_stats(calc_route, street_graph, avg_speed=5):
   '''Calculate total length and travel time of calculated route'''
-    
+
   # Sum up travel time and distance
   cols = ['osmid', 'length']#, 'travel_time']
   attrs = ox.utils_graph.get_route_edge_attributes(street_graph, calc_route)
   df_route = pd.DataFrame(attrs)[cols]
-  
+
   length_m = df_route.length.sum().round().astype("int")
   travel_time_min = round((df_route.length.sum()/(avg_speed*1000))*60)
 
@@ -56,7 +56,7 @@ def inital_nodes_to_consider(user_time, nodes_to_visit_final, street_graph, opti
     The first point a user visits after the start is the node closest to him/her
     '''
 
-    # given on time: take the starting address and x number of nodes from list 
+    # given on time: take the starting address and x number of nodes from list
     x = int(user_time/6) #one place of interest for each 5 minutes
     if x>len(nodes_to_visit_final[1:]): # if number of theoretical nodes to visit is higher than the points of interest in the list take lenght of list
         x = len(nodes_to_visit_final[1:])
@@ -65,11 +65,11 @@ def inital_nodes_to_consider(user_time, nodes_to_visit_final, street_graph, opti
 
     #notes_to_visit_small = np.random.choice(nodes_to_visit_final[1:], x, replace=False).tolist() #sample
 
-    #instead of random sampling of nodes to visit we calculate the distance from the start address and order the list accordingly and then slice it 
+    #instead of random sampling of nodes to visit we calculate the distance from the start address and order the list accordingly and then slice it
     tmp_dict={}
 
     for node in nodes_to_visit_final[1:]:
-        
+
         shortest_route = nx.shortest_path(street_graph,
                                     start_node,
                                     node,
@@ -77,7 +77,7 @@ def inital_nodes_to_consider(user_time, nodes_to_visit_final, street_graph, opti
 
         #Calculate route statistics for each node
         length_m, travel_time_min = get_route_stats(shortest_route, street_graph, avg_speed)
-        
+
         # Add route and stats to tmp_dict
         tmp_dict[node]={"shortest_path": shortest_route,
                         "length_m": length_m,
@@ -86,21 +86,21 @@ def inital_nodes_to_consider(user_time, nodes_to_visit_final, street_graph, opti
     # select shortest path and append to final path list
     df_tmp = pd.DataFrame.from_dict(tmp_dict, orient="index").sort_values(by=["travel_time_min"], ascending=True)
     notes_to_visit_sorted = df_tmp.index.to_list()
-    
+
     notes_to_visit_small = notes_to_visit_sorted[:x]
 
     return notes_to_visit_small, notes_to_visit_sorted, x, start_node
 
-def create_walking_route(street_graph,  start_node, notes_to_visit_small, round_trip, avg_speed=5):
-    ''' 
+def create_walking_route(street_graph,  start_node, notes_to_visit_small, round_trip, optimizer="length", avg_speed=5):
+    '''
     Create first version of the walking route based on the list created in inital_nodes_to_consider
-    The algorithm will always check the distance between the start and all other nodes and then choose the one closest. 
+    The algorithm will always check the distance between the start and all other nodes and then choose the one closest.
     From there it will do the same for the remaining nodes until all nodes have been reached
     In case of a round trip it will also incude the way back home to the end of the route
     '''
 
     final_path = [] #list to store all the final paths
-    
+
 
      # number of times we heave to run a for loop
 
@@ -110,7 +110,7 @@ def create_walking_route(street_graph,  start_node, notes_to_visit_small, round_
                                         start_node,
                                         x,
                                         weight=optimizer)
-    
+
 
     final_path.append(shortest_route[:-1])
 
@@ -129,8 +129,8 @@ def create_walking_route(street_graph,  start_node, notes_to_visit_small, round_
         tmp_dict={}
 
         for node in notes_to_visit_small:
-            
-            
+
+
             shortest_route = nx.shortest_path(street_graph,
                                         x,
                                         node,
@@ -138,7 +138,7 @@ def create_walking_route(street_graph,  start_node, notes_to_visit_small, round_
 
             #Calculate route statistics for each node
             length_m, travel_time_min = get_route_stats(shortest_route, street_graph, avg_speed=5)
-            
+
             # Add route and stats to tmp_dict
             tmp_dict[node]={"shortest_path": shortest_route,
                             "length_m": length_m,
@@ -181,7 +181,7 @@ def evaluate_iterrate_route(final_path_flat, length_m, travel_time_min, notes_to
 
     #Check if travel time is in between +-10 minutes from user time -> if yes return route
     while not ((travel_time_min<=user_time+time_margin) & (travel_time_min>=user_time-time_margin))|(x_init==x):
-        
+
         #save inital x
         x_init = x
 
@@ -190,7 +190,7 @@ def evaluate_iterrate_route(final_path_flat, length_m, travel_time_min, notes_to
             x+= 1 #(user_time-travel_time_min)/5
         elif (travel_time_min>(user_time+time_margin)):
             x-= 1 #(user_time-travel_time_min)/5
-        
+
         #update nodes_to_visist
         notes_to_visit_small = random.sample(notes_to_visit_sorted, x)#[:x]
         final_path_flat, length_m, travel_time_min = create_walking_route(street_graph,start_node,notes_to_visit_small, round_trip=round_trip, avg_speed=5)
@@ -198,4 +198,3 @@ def evaluate_iterrate_route(final_path_flat, length_m, travel_time_min, notes_to
 
     print("Route found")
     return final_path_flat, length_m, travel_time_min, [node for node in final_path_flat if node in notes_to_visit_sorted]
-
