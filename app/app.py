@@ -9,8 +9,8 @@ import pickle
 import os
 from ast import literal_eval
 import folium
-from streamlit_folium import st_folium, folium_static
-from routing import add_start_end_node, inital_nodes_to_consider, create_walking_route, evaluate_iterrate_route
+#from streamlit_folium import st_folium, folium_static
+from WalkieLookie.routing import add_start_end_node, inital_nodes_to_consider, create_walking_route, evaluate_iterrate_route
 import osmnx as ox
 from PIL import Image
 import streamlit.components.v1 as components
@@ -21,6 +21,8 @@ st.set_page_config(layout="wide")
 # Load data
 logo = Image.open(os.path.join(os.path.dirname(__file__),"Logo.png"))
 data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "WalkieLookie", "data")
+#data_path = "/Users/sofiakramarova/Desktop/WalkieLookie-main/WalkieLookie/Data 2/"
+
 #Load DataFrame with nodes of interest (NOI)
 places_noi = pd.read_csv(data_path+"/parks_bln_complete_clean.csv", index_col=0, converters={'col1': literal_eval})
 #load street data from berlin
@@ -33,28 +35,35 @@ with open(data_path+'/graph_berlin.obj', 'rb') as fp:
 st.image(logo)
 
 # User inputs
-col3, col1, col2, col4 = st.columns((1, 1, 1, 1))
-user_time = col2.number_input('Time', 15, help="Time in minutes you plan for your walk")
-start_address = col3.text_input('Starting address',
-                                value="Arndtstraße 23, 10965 Berlin",
-                                help="Starting point of your walk, as a valid address in Berlin")
-round_trip = col3.checkbox('Roundtrip', value=True, help="Do you want to end up back at the start")
-destination_address = col1.text_input(
-                                'Destination address',
-                                value="Yet to be developed",
+with st.form("my_form"):
+    col3, col1, col2, col4 = st.columns((1, 1, 1, 1))
+    user_time = col2.number_input('Time', value=60,
+                                    min_value=15,
+                                    step=5,
+                                    help="Time in minutes you plan for your walk")
+    start_address = col3.text_input('Starting address',
+                                    value="Arndtstraße 23, 10965 Berlin",
+                                    help="Starting point of your walk, as a valid address in Berlin")
+    round_trip = col3.checkbox('Roundtrip', value=True, help="Do you want to end up back at the start")
+    destination_address = col1.text_input(
+                                    'Destination address',
+                                    value="Yet to be developed",
+                                    disabled=True,
+                                    help="(Yet to be developed!) End point of your walk, as a valid address in Berlin")
+    type_walk = col4.text_input('Walk type',
+                                value="To be developed",
                                 disabled=True,
-                                help="(Yet to be developed!) End point of your walk, as a valid address in Berlin")
-type_walk = col4.text_input('Walk type',
-                            value="To be developed",
-                            disabled=True,
-                            help="(Yet to be developed!) What kind of places do you want to pass by along your route?")
+                                help="(Yet to be developed!) What kind of places do you want to pass by along your route?")
 
-# General variables (not set by user)
-avg_speed = 5  # in km/h
-time_margin = 10  # in minutes -> the end route should be within a time range +- 10 minutes from what the user defined
-optimizer = "length"  # optimizer for the shortest path algorithm
+    # General variables (not set by user)
+    avg_speed = 5  # in km/h
+    time_margin = 10  # in minutes -> the end route should be within a time range +- 10 minutes from what the user defined
+    optimizer = "length"  # optimizer for the shortest path algorithm
 
-if col4.button('Plan the trip'):
+    submitted= col4.form_submit_button('Plan the trip')
+
+
+if submitted:
     nodes_to_visit_final, places_df_small, subgraph = add_start_end_node(
         start_address, street_graph, places_noi, user_time)
     notes_to_visit_small, notes_to_visit_sorted, x, start_node = inital_nodes_to_consider(
@@ -94,8 +103,9 @@ if col4.button('Plan the trip'):
 
     st.text("")
     st.text("")
-    components.html(route_plot.get_root().render(), height=500)
+    colm1, colm2 = st.columns([4, 1])
+    with colm1:
+        components.html(route_plot.get_root().render(), height=500)
 
-    colm1, colm2 = st.columns(2)
-    colm1.metric(label="Route length (meters)", value=length_m)
-    colm2.metric(label="Estimated travel time (minutes)", value=travel_time_min)
+    colm2.metric(label="Route length", value=f"{length_m} m")
+    colm2.metric(label="Estimated travel time", value=f"{travel_time_min} min")
