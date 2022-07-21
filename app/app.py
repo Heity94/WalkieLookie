@@ -32,7 +32,7 @@ with open(data_path+'/graph_berlin.obj', 'rb') as fp:
 ## Content of the side
 
 # Logo on top of the page
-st.image(logo)
+st.image(logo, width=350)
 
 # User inputs
 with st.form("my_form"):
