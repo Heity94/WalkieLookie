@@ -1,6 +1,6 @@
 #from datetime import datetime
 import pandas as pd
-import numpy as np
+#import numpy as np
 import streamlit as st
 #import requests
 #import json
@@ -10,8 +10,9 @@ import os
 from ast import literal_eval
 import folium
 #from streamlit_folium import st_folium, folium_static
-from WalkieLookie.routing import add_start_end_node, inital_nodes_to_consider, create_walking_route, evaluate_iterrate_route
+from WalkieLookie.routing import routing
 import osmnx as ox
+#ox.settings.log_console = True
 from PIL import Image
 import streamlit.components.v1 as components
 
@@ -24,7 +25,10 @@ data_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "WalkieLook
 #data_path = "/Users/sofiakramarova/Desktop/WalkieLookie-main/WalkieLookie/Data 2/"
 
 #Load DataFrame with nodes of interest (NOI)
-places_noi = pd.read_csv(data_path+"/parks_bln_complete_clean.csv", index_col=0, converters={'col1': literal_eval})
+places_noi = pd.read_csv(data_path + "/Parks_Berlin.csv",
+                         index_col=0,
+                         converters={'col1': literal_eval})
+
 #load street data from berlin
 with open(data_path+'/graph_berlin.obj', 'rb') as fp:
     street_graph = pickle.load(fp)
@@ -64,19 +68,17 @@ with st.form("my_form"):
 
 
 if submitted:
-    nodes_to_visit_final, places_df_small, subgraph = add_start_end_node(
-        start_address, street_graph, places_noi, user_time)
-    notes_to_visit_small, notes_to_visit_sorted, x, start_node = inital_nodes_to_consider(
+
+    # Calculate walking route
+    final_path_flat, length_m, travel_time_min, visited_nodes = routing(
+        start_address,
+        street_graph,
+        places_noi,
         user_time,
-        nodes_to_visit_final,
-        subgraph,
-        optimizer=optimizer,
-        avg_speed=avg_speed)
-    final_path_flat, length_m, travel_time_min = create_walking_route(
-        subgraph, start_node, notes_to_visit_small, round_trip, avg_speed)
-    final_path_flat, length_m, travel_time_min, visited_nodes = evaluate_iterrate_route(
-        final_path_flat, length_m, travel_time_min, notes_to_visit_sorted, x,
-        start_node, user_time, subgraph, round_trip, time_margin, avg_speed)
+        round_trip,
+        optimizer,
+        avg_speed,
+        time_margin)
 
     #Plot final route
     route_plot = ox.plot_route_folium(street_graph, final_path_flat)

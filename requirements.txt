@@ -5,22 +5,21 @@ twine
 wheel>=0.29
 
 # data science
-numpy
-pandas
-scikit-learn
-#pickle
+numpy==1.24.3
+pandas==2.0.2
+scikit-learn==1.2.2
 
 #routing
-networkx
-osmnx
-geopy
+networkx==3.1
+osmnx==1.4.0
+geopy==2.3.0
 
 #web app
-streamlit
-folium
+streamlit==1.23.1
+folium==0.14.0
 
 # utilities
-six>=1.14
+#six>=1.14
 #joblib
 #memoized-property
 #termcolor

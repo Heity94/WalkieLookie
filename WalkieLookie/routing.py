@@ -4,47 +4,46 @@ import pandas as pd
 import numpy as np
 import osmnx as ox
 import networkx as nx
-ox.config(log_console=True, use_cache=True)
+ox.settings.log_console = True
 from geopy.geocoders import Nominatim
-from ast import literal_eval
-
-
+#from ast import literal_eval
 
 
 def add_start_end_node(start_address, street_graph, places_df, user_time, avg_speed=5, end_address=None):
-  '''Add start (and end address) to list of nodes which should be visited'''
+    '''Add start (and end address) to list of nodes which should be visited'''
 
-  locator = Nominatim(user_agent = "myapp")
+    locator = Nominatim(user_agent = "myapp")
 
-  # stores the start and end points as geopy.point.Point objects
-  start_latlng = locator.geocode(start_address).point
-  #end_latlng = locator.geocode(end_location).point
+    # stores the start and end points as geopy.point.Point objects
+    start_latlng = locator.geocode(start_address).point
+    #end_latlng = locator.geocode(end_location).point
 
-  # Find nearest node on the street graph
-  orig_node = ox.distance.nearest_nodes(street_graph, start_latlng[1], start_latlng[0]) #graph, long, lat
+    # Find nearest node on the street graph
+    orig_node = ox.distance.nearest_nodes(street_graph, start_latlng[1], start_latlng[0]) #graph, long, lat
 
-  radius = (user_time/60)*avg_speed*350
-  subgraph = nx.ego_graph(street_graph, orig_node, radius=radius, distance='length')
+    radius = (user_time/60)*avg_speed*350
+    subgraph = nx.ego_graph(street_graph, orig_node, radius=radius, distance='length')
 
-  places_df_small = places_df.loc[places_df.center_node.isin(subgraph.nodes())]
+    places_df_small = places_df.loc[places_df.center_node.isin(subgraph.nodes())]
 
-  nodes_to_visit = [orig_node]+places_df_small.center_node.to_list() #add start node tto list to visit
+    nodes_to_visit = [orig_node]+places_df_small.center_node.to_list() #add start node tto list to visit
 
-  return nodes_to_visit, places_df_small, subgraph
+    return nodes_to_visit, places_df_small, subgraph
 
 
 def get_route_stats(calc_route, street_graph, avg_speed=5):
-  '''Calculate total length and travel time of calculated route'''
+    '''Calculate total length and travel time of calculated route'''
 
-  # Sum up travel time and distance
-  cols = ['osmid', 'length']#, 'travel_time']
-  attrs = ox.utils_graph.get_route_edge_attributes(street_graph, calc_route)
-  df_route = pd.DataFrame(attrs)[cols]
+    # Sum up travel time and distance
+    cols = ['osmid', 'length']#, 'travel_time']
+    attrs = ox.utils_graph.route_to_gdf(
+        street_graph, calc_route)
+    df_route = pd.DataFrame(attrs)[cols]
 
-  length_m = df_route.length.sum().round().astype("int")
-  travel_time_min = round((df_route.length.sum()/(avg_speed*1000))*60)
+    length_m = df_route.length.sum().round().astype("int")
+    travel_time_min = round((df_route.length.sum()/(avg_speed*1000))*60)
 
-  return length_m, travel_time_min
+    return length_m, travel_time_min
 
 
 
@@ -102,7 +101,7 @@ def create_walking_route(street_graph,  start_node, notes_to_visit_small, round_
     final_path = [] #list to store all the final paths
 
 
-     # number of times we heave to run a for loop
+    # number of times we heave to run a for loop
 
     x = notes_to_visit_small.pop(random.randint(0, (len(notes_to_visit_small)-1)))
 
@@ -117,8 +116,8 @@ def create_walking_route(street_graph,  start_node, notes_to_visit_small, round_
     #length_m, travel_time_min = get_route_stats(shortest_route, street_graph, avg_speed=5)
 
     #tmp_dict[x]={"shortest_path": shortest_route,
-                            #"length_m": length_m,
-                            #"travel_time_min": travel_time_min}
+    #"length_m": length_m,
+    #"travel_time_min": travel_time_min}
     x = shortest_route[-1]
 
     iterrations = len(notes_to_visit_small)
@@ -198,3 +197,14 @@ def evaluate_iterrate_route(final_path_flat, length_m, travel_time_min, notes_to
 
     print("Route found")
     return final_path_flat, length_m, travel_time_min, [node for node in final_path_flat if node in notes_to_visit_sorted]
+
+
+def routing(start_address, street_graph, places_noi, user_time, round_trip=True, optimizer="length", avg_speed=5, time_margin=10):
+    '''Based on start address and time, create a walking route which fits within users preferences for certain location'''
+
+    nodes_to_visit_final, places_df_small, subgraph = add_start_end_node(start_address, street_graph, places_noi, user_time)
+    notes_to_visit_small, notes_to_visit_sorted, x, start_node = inital_nodes_to_consider(user_time, nodes_to_visit_final, subgraph, optimizer=optimizer, avg_speed=avg_speed)
+    final_path_flat, length_m, travel_time_min = create_walking_route(subgraph, start_node, notes_to_visit_small, round_trip, avg_speed)
+    final_path_flat, length_m, travel_time_min, visited_nodes = evaluate_iterrate_route(final_path_flat, length_m, travel_time_min, notes_to_visit_sorted, x, start_node, user_time, subgraph, round_trip, time_margin, avg_speed)
+
+    return final_path_flat, length_m, travel_time_min, visited_nodes
