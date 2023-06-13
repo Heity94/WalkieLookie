@@ -46,7 +46,7 @@ After successful installation and download of the grtaph data you should be able
 streamlit run app/app.py
 ```
 From there on you can choose your starting address (must be within the boundaries of Berlin), your time availability for the walk, and if your route should bring you back to your starting place.
-[Scrrenshot_Application](/app/Dashboard.png)
+![Screenshot_Application](/app/Dashboard.png)
 
 
 
@@ -54,12 +54,10 @@ From there on you can choose your starting address (must be within the boundarie
 The general structure of this repository is detailed below
 ```bash
 .
-├── TreeModelsFromScratch   # Python module for decision tree and random forest models
-├── scripts                 # Script to run predictive performance experiment
-├── raw_data                # Datasets used for training and evaluating the artifact
-├── notebooks               # Notebooks to run experiments, recreate original results from HS paper and compare self-developed models with sklearn and imodels implementation
-├── data                    # Experimental results, including trained models, simulation settings, and created plots
-├── MANIFEST.in
+├── WalkieLookie            # Python module for routing algorithm
+├── scripts                 # Script to download graph data
+├── notebooks               # Notebooks to prepare data and test results
+├── app                     # Streamlit application to create walkingtours
 ├── README.md
 ├── .gitignore
 ├── requirements.txt
